@@ -17,17 +17,17 @@ type_code = {
 
 if os.path.exists('ptypes.yaml'):
     with open('ptypes.yaml', 'r') as f:
-        ptypes = yaml.load(f)
+        ptypes = yaml.load(f, Loader=yaml.SafeLoader)
 else:
     ptypes = None
 
 class sfo(object):
     
     #---
-    def __init__(self, filename=None):
+    def __init__(self, fname=None):
         if fname:
             self.filename = fname
-            self.load(filename)
+            self.load(self.filename)
     
     
     #---
@@ -76,7 +76,7 @@ class sfo(object):
             except IndexError:
                 p_name_bytes = name_table_bytes - def_table[e][0]
             p_name = sfo_file.read(p_name_bytes)
-            param_names.append(p_name.rstrip('\x00'))
+            param_names.append(p_name.rstrip(b'\x00'))
         
         #---
         # Parse parameter values
@@ -90,14 +90,14 @@ class sfo(object):
             value_raw = sfo_file.read(v_total)
             
             if v_type in (0x0204, 0x0004):
-                value = value_raw.rstrip('\x00')
+                value = value_raw.rstrip(b'\x00')
             elif v_type == 0x0404:
                 # Reverse index to read as little-endian
                 # NOTE: Method for raw string to int?
                 value_ascii = binascii.hexlify(value_raw[::-1])
                 value = int(value_ascii, 16)
             else:
-                print 'unknown format'
+                print('unknown format')
             
             param_values.append(value)
         
@@ -108,11 +108,11 @@ class sfo(object):
     
     #---
     def dump(self):
-        print 'SFO File Signature:', self.file_signature
-        print 'SFO File Version:', self.file_version
+        print('SFO File Signature:', self.file_signature)
+        print('SFO File Version:', self.file_version)
         
         for p in self.params:
-            print "{}: {}".format(p, self.params[p])
+            print("{}: {}".format(p, self.params[p]))
 
     
     #---
@@ -172,7 +172,7 @@ class sfo(object):
         
         # Write name table
         for p in p_names:
-            sfo_out.write(p + '\x00')
+            sfo_out.write(p + b'\x00')
 
         # Write data table
         for p in p_names:
@@ -181,21 +181,11 @@ class sfo(object):
                 p_val = self.params[p]
                 p_size = ptypes[p]['size']
                 sfo_out.write(self.params[p]
-                              + '\x00'*max(0, p_size - len(p_val)))
+                              + b'\x00'*max(0, p_size - len(p_val)))
             elif p_code == 0x0404:
                 val = struct.pack('<I', self.params[p])
                 sfo_out.write(val)
             else:
-                print 'Unsupported type'
+                print('Unsupported type')
         
         sfo_out.close()
-
-
-#---
-if __name__ == '__main__':
-    
-    # TODO: Read file from command line
-    fname = 'param.sfo'
-    test = sfo(fname)
-    test.dump()
-    test.write('test.sfo')
